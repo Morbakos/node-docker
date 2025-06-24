@@ -1,121 +1,96 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
-
 import type {
-  ContainerIdParam,
-  ContainerListQuery,
-  ContainerLogsQuery,
-  ContainerWaitQuery,
-  ContainerCreateBody,
-  ContainerResizeBody,
-  ContainerListResponse,
-  ContainerCreateResponse,
-  ContainerInspectResponse,
-  ContainerLogsResponse,
-  ContainerWaitResponse,
-  ContainerResizeResponse,
-  ContainerStartResponse,
-  ContainerStopResponse,
-  ContainerRestartResponse,
-  ContainerKillResponse,
-  ContainerRemoveResponse,
+  ContainerListQueryDto,
+  ContainerLogsQueryDto,
+  ContainerResizeQueryDto,
+  ContainerRenameQueryDto,
+  ContainerUpdateDto,
+  ContainerStartDto,
+  ContainerStopQueryDto,
+  ContainerRestartQueryDto,
+  ContainerKillQueryDto,
+  ContainerAttachQueryDto,
+  ContainerStatsQueryDto,
+  ContainerWaitResponseDto,
 } from './api-types/docker-containers.dto';
 
 @Injectable()
 export class DockerContainersService {
   constructor(private readonly http: HttpService) { }
 
-  async listContainers(
-    query?: ContainerListQuery,
-  ): Promise<ContainerListResponse> {
+  async listContainers(query?: ContainerListQueryDto) {
+    const res = await lastValueFrom(this.http.get('/containers/json', { params: query }));
+    return res.data;
+  }
+
+  async createContainer(body: any) {
+    const res = await lastValueFrom(this.http.post('/containers/create', body));
+    return res.data;
+  }
+
+  async inspectContainer(id: string) {
+    const res = await lastValueFrom(this.http.get(`/containers/${id}/json`));
+    return res.data;
+  }
+
+  async getContainerLogs(id: string, query: ContainerLogsQueryDto) {
+    const res = await lastValueFrom(this.http.get(`/containers/${id}/logs`, {
+      params: query,
+      responseType: 'text',
+    }));
+    return res.data;
+  }
+
+  async waitContainer(id: string): Promise<ContainerWaitResponseDto> {
     const res = await lastValueFrom(
-      this.http.get<ContainerListResponse>('/containers/json', {
-        params: query,
-      }),
+      this.http.post<ContainerWaitResponseDto>(`/containers/${id}/wait`),
     );
     return res.data;
   }
 
-  async createContainer(
-    body: ContainerCreateBody,
-    query?: unknown,
-  ): Promise<ContainerCreateResponse> {
-    const res = await lastValueFrom(
-      this.http.post<ContainerCreateResponse>('/containers/create', body, {
-        params: query,
-      }),
-    );
+
+  async resizeContainer(id: string, query: ContainerResizeQueryDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/resize`, null, { params: query }));
+  }
+
+  async renameContainer(id: string, query: ContainerRenameQueryDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/rename`, null, { params: query }));
+  }
+
+  async updateContainer(id: string, body: ContainerUpdateDto) {
+    const res = await lastValueFrom(this.http.post(`/containers/${id}/update`, body));
     return res.data;
   }
 
-  async inspectContainer(
-    path: ContainerIdParam,
-    query?: unknown,
-  ): Promise<ContainerInspectResponse> {
-    const res = await lastValueFrom(
-      this.http.get<ContainerInspectResponse>(`/containers/${path.id}/json`, {
-        params: query,
-      }),
-    );
+  async startContainer(id: string, body?: ContainerStartDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/start`, body));
+  }
+
+  async stopContainer(id: string, query: ContainerStopQueryDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/stop`, null, { params: query }));
+  }
+
+  async restartContainer(id: string, query: ContainerRestartQueryDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/restart`, null, { params: query }));
+  }
+
+  async killContainer(id: string, query: ContainerKillQueryDto) {
+    await lastValueFrom(this.http.post(`/containers/${id}/kill`, null, { params: query }));
+  }
+
+  async attachContainer(id: string, query: ContainerAttachQueryDto) {
+    const res = await lastValueFrom(this.http.post(`/containers/${id}/attach`, null, { params: query }));
     return res.data;
   }
 
-  async getContainerLogs(
-    path: ContainerIdParam,
-    query: ContainerLogsQuery,
-  ): Promise<ContainerLogsResponse> {
-    const res = await lastValueFrom(
-      this.http.get(`/containers/${path.id}/logs`, {
-        params: query,
-        responseType: 'text',
-      }),
-    );
+  async statsContainer(id: string, query: ContainerStatsQueryDto) {
+    const res = await lastValueFrom(this.http.get(`/containers/${id}/stats`, { params: query }));
     return res.data;
   }
 
-  async waitContainer(
-    path: ContainerIdParam,
-    query?: ContainerWaitQuery,
-  ): Promise<ContainerWaitResponse> {
-    const res = await lastValueFrom(
-      this.http.post<ContainerWaitResponse>(`/containers/${path.id}/wait`, null, {
-        params: query,
-      }),
-    );
-    return res.data;
-  }
-
-  async resizeContainer(
-    path: ContainerIdParam,
-    body: ContainerResizeBody,
-  ): Promise<ContainerResizeResponse> {
-    await lastValueFrom(
-      this.http.post(`/containers/${path.id}/resize`, body),
-    );
-  }
-
-  async startContainer(path: ContainerIdParam): Promise<ContainerStartResponse> {
-    await lastValueFrom(this.http.post(`/containers/${path.id}/start`, null));
-  }
-
-  async stopContainer(path: ContainerIdParam): Promise<ContainerStopResponse> {
-    await lastValueFrom(this.http.post(`/containers/${path.id}/stop`, null));
-  }
-
-  async restartContainer(
-    path: ContainerIdParam,
-  ): Promise<ContainerRestartResponse> {
-    await lastValueFrom(this.http.post(`/containers/${path.id}/restart`, null));
-  }
-
-  async killContainer(path: ContainerIdParam): Promise<ContainerKillResponse> {
-    await lastValueFrom(this.http.post(`/containers/${path.id}/kill`, null));
-  }
-
-  async removeContainer(
-    path: ContainerIdParam,
-  ): Promise<ContainerRemoveResponse> {
-    await lastValueFrom(this.http.delete(`/containers/${path.id}`));
+  async removeContainer(id: string) {
+    await lastValueFrom(this.http.delete(`/containers/${id}`));
   }
 }
